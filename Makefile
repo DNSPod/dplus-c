@@ -5,9 +5,9 @@ LDFLAGS=-lpthread
 SOURCES=$(wildcard *.c)
 OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 
-TARGET=libdplubs.a
+TARGET=libdplus.a
 
-all: $(TARGET) $(OBJECTS)
+all: $(TARGET)
 
 $(TARGET): CFLAGS += -fPIC
 $(TARGET): $(OBJECTS)
