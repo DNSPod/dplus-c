@@ -302,12 +302,12 @@ void lruhash_status(struct lruhash *table)
     fprintf(stdout, "lruhash: %u entries, memory %u / %u",
         (unsigned)table->num, (unsigned)table->space_used,
         (unsigned)table->space_max);
-    fprintf(stdout, "  itemsize %u, array %u, mask %d",
+    fprintf(stdout, "  itemsize %u, array %u, mask %d\n",
         (unsigned)(table->num? table->space_used/table->num : 0),
         (unsigned)table->size, table->size_mask);
 
     min = (int)table->size*2;
-    max = -2;
+    max = 0;
     for(i=0; i<table->size; i++) {
         int here = 0;
         struct lruhash_entry *en;
@@ -316,11 +316,11 @@ void lruhash_status(struct lruhash *table)
             here++;
             en = en->overflow_next;
         }
-        fprintf(stdout, "bucket[%d] %d", (int)i, here);
+        fprintf(stdout, "bucket[%d] %d\n", (int)i, here);
         if(here > max) max = here;
         if(here < min) min = here;
     }
-    fprintf(stdout, "  bin min %d, avg %.2lf, max %d", min, 
+    fprintf(stdout, "bucket min %d, avg %.2lf, max %d\n", min, 
         (double)table->num/(double)table->size, max);
 
     lock_basic_unlock(&table->lock);
