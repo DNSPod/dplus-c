@@ -70,6 +70,8 @@ struct dp_env {
     int port;
 };
 
+/** API */
+
 //set cache and ttl before init env
 void dp_set_cache_mem(size_t maxmem);
 void dp_set_ttl(int ttl);
@@ -88,8 +90,9 @@ int dp_getaddrinfo(const char *node, const char *service,
 //similar with freeaddrinfo
 void dp_freeaddrinfo(struct addrinfo *res);
 
+/** */
+
 /** internal functions */
-struct host_info *dp_query(const char *node);
 struct host_info *http_query(const char *node, time_t *ttl);
 
 //http request api
