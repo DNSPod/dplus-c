@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-static -Wall -g -O2
-LDFLAGS=-lpthread
+LDFLAGS=-lpthread -lcrypto
 
 SOURCES=$(wildcard *.c)
 OBJECTS=$(patsubst %.c, %.o, $(SOURCES))

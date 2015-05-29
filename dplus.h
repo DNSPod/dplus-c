@@ -1,10 +1,30 @@
 #ifndef DPLUS_H
 #define DPLUS_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include <sys/time.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include "openssl/evp.h"
 
 #include "lruhash.h"
+
+#define ENTERPRISE_EDITION
+
+#ifdef ENTERPRISE_EDITION
+#define DP_DES_ID   12
+#define DP_DES_KEY  "@o]T<oX/"
+#endif
 
 struct query_info {
     char *node;
@@ -75,6 +95,12 @@ struct dp_env {
 //set cache and ttl before init env
 void dp_set_cache_mem(size_t maxmem);
 void dp_set_ttl(int ttl);
+
+// enterprise version interface
+void dp_set_des_id(u_int32_t id);
+void dp_set_des_key(const char *key);
+char *dp_des_encrypt(const char *domain);
+char *dp_des_decrypt(const char *des_ip);
 
 //dplus environment init and destroy
 void dp_env_init();

@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "lruhash.h"
 
 static void bucket_delete(struct lruhash *table, struct lruhash_bucket *bucket)

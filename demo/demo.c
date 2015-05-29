@@ -1,12 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <string.h>
-#include <arpa/inet.h>
-#include <sys/time.h>
-
 #include "../dplus.h"
 
 int main(int argc, char **argv)
@@ -23,12 +14,17 @@ int main(int argc, char **argv)
     //init dplus environment
     dp_set_cache_mem(4*1024*1024);
     dp_set_ttl(90);
+#ifdef ENTERPRISE_EDITION
+    dp_set_des_id(DP_DES_ID);
+    dp_set_des_key(DP_DES_KEY);
+#endif
+    
     dp_env_init();
 
     bzero(&hint, sizeof(hint));
     hint.ai_family = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
-
+    
     ret = dp_getaddrinfo(argv[1], NULL, &hint, &answer);
     if (ret != 0) {
         fprintf(stderr, "dp_getaddrinfo: %s\n", gai_strerror(ret));
@@ -41,6 +37,7 @@ int main(int argc, char **argv)
             ipstr, 16);
         printf("%s\n", ipstr);
     }
+
 
     dp_freeaddrinfo(answer);
     dp_env_destroy();
