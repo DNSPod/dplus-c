@@ -109,6 +109,9 @@ void dp_env_destroy();
 //flush host name from cache
 void dp_flush_cache(const char *node);
 
+//dplus cache status
+void dp_cache_status();
+
 //similar with getaddrinfo
 int dp_getaddrinfo(const char *node, const char *service,
     const struct addrinfo *hints, struct addrinfo **res);
