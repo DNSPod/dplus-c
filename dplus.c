@@ -66,27 +66,26 @@ char *dp_des_encrypt(const char *domain)
     char *des_domain;
     int blen1, blen2, dlen = strlen(domain), des_len;
     int i;
-    
+
     if (INVALID_DES_ID == des_id || dlen > DOMAIN_MAX_SIZE)
         return NULL;
-    
+
     // 初始化ctx结构，使用des/ecb方式，padding方式默认即可
     EVP_CIPHER_CTX_init(&ctx);
     EVP_EncryptInit_ex(&ctx, EVP_des_ecb(), NULL, (const unsigned char*)des_key, NULL);
     //EVP_CIPHER_CTX_set_padding(&ctx, 0x0001);
-    
+
     // 对称加密数据并padding
     EVP_EncryptUpdate(&ctx, buf, &blen1,  (const unsigned char*)domain, dlen);
     EVP_EncryptFinal_ex(&ctx, buf + blen1, &blen2);
     EVP_CIPHER_CTX_cleanup(&ctx);
-    
+
     des_len = (blen1 + blen2) * 2;
     des_domain = malloc(des_len + 1);
     if (NULL == des_domain)
         return NULL;
-    
-    for (i = 0; i < (blen1 + blen2); i++)
-    {
+
+    for (i = 0; i < (blen1 + blen2); i++) {
         snprintf(des_domain + i * 2, des_len - i * 2 + 1 , "%02x", ((u_char *)buf)[i]);
     }
     des_domain[des_len] = '\0';
@@ -108,7 +107,7 @@ char *dp_des_decrypt(const char *des_ip)
     
     if (INVALID_DES_ID == des_id)
         return NULL;
-    
+
     iplen = des_len / 2;
     buf = malloc(iplen + 1);
     if (NULL == buf)
@@ -119,7 +118,7 @@ char *dp_des_decrypt(const char *des_ip)
         free(buf);
         return NULL;
     }
-    
+
     // 将16禁制的字符串转换为字节字符串
     for (i = 0;  i < iplen;  i++)
     {
@@ -128,20 +127,20 @@ char *dp_des_decrypt(const char *des_ip)
         buf[i] = strtoul(tmp, NULL, 16);
     }
     buf[iplen] = '\0';
-    
+
     // 初始化ctx结构，使用des/ecb方式，padding方式默认即可
     EVP_CIPHER_CTX_init(&ctx);
     EVP_DecryptInit_ex(&ctx, EVP_des_ecb(), NULL, (const unsigned char*)des_key, NULL);
     //EVP_CIPHER_CTX_set_padding(&ctx, 0x0001);
-    
+
     // 解密数据并移除padding
     EVP_DecryptUpdate(&ctx, (unsigned char*)sip, &blen1, (const unsigned char*)buf, iplen);
     EVP_DecryptFinal_ex(&ctx, (unsigned char*)(sip + blen1), &blen2);
     EVP_CIPHER_CTX_cleanup(&ctx);
-    
+
     iplen = blen1 + blen2;
     sip[iplen] = '\0';
-    
+
     free(buf);
     return sip;
 }
@@ -246,7 +245,7 @@ static void dns_cache_store_msg(struct query_info *qinfo, hashvalue_t hash,
     rep->host = hi;
     ttl = ttl < CACHE_DEFAULT_MIN_TTL ? CACHE_DEFAULT_MIN_TTL : ttl;
     rep->ttl = ttl + now;
-    rep->prefetch_ttl = PREFETCH_TTL_CALC(ttl);
+    rep->prefetch_ttl = PREFETCH_TTL_CALC(ttl) + now;
 
     if(!(e = query_info_entrysetup(qinfo, rep, hash))) {
         fprintf(stderr, "store_msg: malloc failed");
@@ -407,7 +406,7 @@ static void prefetch_new_query(struct query_info *qinfo, hashvalue_t hash)
     tinfo.hash = hash;
 
     pthread_attr_init(&attr);
-    pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     pthread_create(&thread, &attr, &prefetch_job, &tinfo);
     pthread_attr_destroy(&attr);
 }
@@ -532,6 +531,31 @@ void dp_flush_cache(const char *node)
     lruhash_remove(dpe->cache, h, &qinfo);
 }
 
+static void print_key(void *key)
+{
+    struct msgreply_entry *q = (struct msgreply_entry *)key;
+    fprintf(stdout, "entry key:%s;", q->key.node);
+}
+
+static void print_value(void *data)
+{
+    struct reply_info *rep = (struct reply_info *)data;
+    int i;
+    char ipstr[16] = {0};
+    fprintf(stdout, "ip count[%d]:", rep->host->addr_list_len);
+    for (i = 0; i < rep->host->addr_list_len; ++i) {
+        inet_ntop(AF_INET, rep->host->h_addr_list[i], ipstr, 16);
+        fprintf(stdout, "%s,", ipstr);
+    }
+    fprintf(stdout, "ttl:%lu, prefetch_ttl:%lu\n", rep->ttl,
+        rep->prefetch_ttl);
+}
+
+void dp_cache_status()
+{
+    lruhash_status(dpe->cache, print_key, print_value);
+}
+
 static int strchr_num(const char *str, char c)
 {
     int count = 0;
@@ -582,7 +606,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
 #else
     http_data_ptr = http_data;
 #endif
-    
+
     comma_ptr = strchr(http_data_ptr, ',');
     if (comma_ptr != NULL) {
         sscanf(comma_ptr + 1, "%ld", ttl);
@@ -624,7 +648,6 @@ struct host_info *http_query(const char *node, time_t *ttl)
             goto error;
         }
         ret = inet_pton(AF_INET, ipstr, addr);
-        
         if (ret <= 0) {
             fprintf(stderr, "invalid ipstr:%s\n", ipstr);
             host_info_clear(hi);
@@ -752,16 +775,14 @@ int dp_getaddrinfo(const char *node, const char *service,
 #ifdef ENTERPRISE_EDITION
     // 企业版需要先对域名进行对称加密
     dnode = dp_des_encrypt(node);
-    if (NULL == dnode)
-    {
+    if (NULL == dnode) {
         fprintf(stderr, "dp_des_encrypt: %s\n", node);
-        dp_env_destroy();
-        return 1;
+        return -1;
     }
 #else
     dnode = node;
 #endif
-    
+
     hi = http_query(dnode, &ttl);
     if (hi == NULL) {
         return getaddrinfo(node, service, hints, res);
@@ -773,7 +794,6 @@ int dp_getaddrinfo(const char *node, const char *service,
 #ifdef ENTERPRISE_EDITION
     free(dnode);
 #endif
-    host_info_clear(hi);
-    
+
     return ret;
 }

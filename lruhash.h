@@ -25,6 +25,9 @@ typedef int (*lruhash_compfunc_t)(void *, void *);
 typedef void (*lruhash_delkeyfunc_t)(void *);
 typedef void (*lruhash_deldatafunc_t)(void *);
 
+typedef void (*lruhash_printkey_t)(void *);
+typedef void (*lruhash_printvalue_t)(void *);
+
 //LRU Hash table.
 struct lruhash {
     lock_basic_t lock;
@@ -95,6 +98,7 @@ void lruhash_remove(struct lruhash *table, hashvalue_t hash, void *key);
 struct lruhash_entry *lruhash_lookup(struct lruhash *table,
     hashvalue_t hash, void *key);
 
-void lruhash_status(struct lruhash *table);
+void lruhash_status(struct lruhash *table, lruhash_printkey_t print_key,
+    lruhash_printvalue_t print_value);
 
 #endif

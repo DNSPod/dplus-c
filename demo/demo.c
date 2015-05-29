@@ -39,7 +39,7 @@ int main(int argc, char **argv)
             ipstr, 16);
         printf("%s\n", ipstr);
     }
-   
+
     dp_freeaddrinfo(answer);
     gettimeofday(&time2, NULL);
     printf("first time:%lu ms\n", (time2.tv_usec - time.tv_usec)/1000);
@@ -60,7 +60,9 @@ int main(int argc, char **argv)
     dp_freeaddrinfo(answer);
     gettimeofday(&time2, NULL);
     printf("second time:%lu ms\n", (time2.tv_usec - time.tv_usec)/1000);
-    
+
+    dp_cache_status();
+
     dp_env_destroy();
     return 0;
 }

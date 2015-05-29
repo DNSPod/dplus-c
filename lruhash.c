@@ -291,7 +291,8 @@ void lruhash_remove(struct lruhash *table, hashvalue_t hash, void *key)
     (*table->deldatafunc)(d);
 }
 
-void lruhash_status(struct lruhash *table)
+void lruhash_status(struct lruhash *table, lruhash_printkey_t print_key,
+    lruhash_printvalue_t print_value)
 {
     size_t i;
     int min, max;
@@ -311,9 +312,17 @@ void lruhash_status(struct lruhash *table)
         en = table->array[i].overflow_list;
         while(en) {
             here++;
+            if (print_key) {
+                print_key(en->key);
+            }
+            if (print_value) {
+                print_value(en->data);
+            }
             en = en->overflow_next;
         }
-        fprintf(stdout, "bucket[%d] %d\n", (int)i, here);
+        if (here > 0) {
+            fprintf(stdout, "bucket[%d] %d\n", (int)i, here);
+        }
         if(here > max) max = here;
         if(here < min) min = here;
     }
