@@ -85,8 +85,10 @@ char *dp_des_encrypt(const char *domain)
     if (NULL == des_domain)
         return NULL;
     
-    for (i = 0; i < blen1; i++)
-        snprintf(des_domain + i * 2, blen1 - i * 2 , "%02x", ((u_char *)buf)[i]);
+    for (i = 0; i < (blen1 + blen2); i++)
+    {
+        snprintf(des_domain + i * 2, des_len - i * 2 + 1 , "%02x", ((u_char *)buf)[i]);
+    }
     des_domain[des_len] = '\0';
     
     return des_domain;
@@ -554,7 +556,11 @@ struct host_info *http_query(const char *node, time_t *ttl)
         return NULL;
     }
 
+#ifdef ENTERPRISE_EDITION
+    snprintf(http_data, HTTP_DEFAULT_DATA_SIZE, "/d?dn=%s&ttl=1&id=%d", node, des_id);
+#else
     snprintf(http_data, HTTP_DEFAULT_DATA_SIZE, "/d?dn=%s&ttl=1", node);
+#endif
     ret = make_request(sockfd, dpe->serv_ip, http_data);
     if(ret < 0){
         close(sockfd);
@@ -572,6 +578,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
     http_data_ptr = dp_des_decrypt(http_data);
     if (NULL == http_data_ptr)
         return NULL;
+    char *http_data_ptr_head = http_data_ptr;
 #else
     http_data_ptr = http_data;
 #endif
@@ -593,7 +600,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
     //Only support IPV4
     hi->h_addrtype = AF_INET;
     hi->h_length = sizeof(struct in_addr);
-    hi->addr_list_len = strchr_num(http_data, ';') + 1;
+    hi->addr_list_len = strchr_num(http_data_ptr, ';') + 1;
     hi->h_addr_list = (char **)calloc(hi->addr_list_len, sizeof(char *));
     if(hi->h_addr_list == NULL) {
         fprintf(stderr, "calloc addr_list failed\n");
@@ -617,6 +624,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
             goto error;
         }
         ret = inet_pton(AF_INET, ipstr, addr);
+        
         if (ret <= 0) {
             fprintf(stderr, "invalid ipstr:%s\n", ipstr);
             host_info_clear(hi);
@@ -627,13 +635,13 @@ struct host_info *http_query(const char *node, time_t *ttl)
     }
 
 #ifdef ENTERPRISE_EDITION
-        free(http_data_ptr);
+        free(http_data_ptr_head);
 #endif
     return hi;
     
 error:
 #ifdef ENTERPRISE_EDITION
-        free(http_data_ptr);
+        free(http_data_ptr_head);
 #endif
     return NULL;
 }
@@ -648,7 +656,7 @@ int dp_getaddrinfo(const char *node, const char *service,
 {
     struct host_info *hi = NULL;
     int port = 0, socktype, proto, ret = 0;
-    char *dnode;
+    const char *dnode;
 
     hashvalue_t h;
     struct lruhash_entry *e;

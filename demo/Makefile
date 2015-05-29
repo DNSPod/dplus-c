@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-static -Wall -g -O2
+CFLAGS=-static -Wall -g 
 LDFLAGS=-L.. -ldplus -lpthread  -lcrypto
 
 TARGET=demo
