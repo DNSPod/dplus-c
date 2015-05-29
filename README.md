@@ -52,7 +52,7 @@
     dp_env_destroy
         销毁dplus-c环境
 
-    5. 获取域名IP
+    3. 获取域名IP
     dp_getaddrinfo与dp_freeaddrinfo
         调用dp_getaddrinfo进行域名的解析
         调用dp_freeaddrinfo释放内存
@@ -62,6 +62,8 @@
     4. 缓存操作
     dp_flush_cache(const char *node)
         必要时可调用此函数清除域名的缓存信息。
-    
+
+    dp_cache_status()
+        打印缓存信息。
 
     具体实例，参考DEMO。
