@@ -3,6 +3,8 @@
 
 #include <pthread.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 typedef pthread_mutex_t lock_basic_t;
 #define lock_basic_init(lock) pthread_mutex_init(lock, NULL)

@@ -10,7 +10,7 @@
 
 ## dplus-c的DNS查询流程
     1. 修改必要的参数配置。
-        1.1 缓存大小、最小TTL等，如果时企业版还需要设置DES加密ID、KEY等。
+        1.1 缓存大小、最小TTL等，如果是企业版还需要设置DES加密ID、KEY等。
     2. SDK初始化。
     3. （企业版）对域名进行DES加密得到加密后的字符串。（TODO：批量解析说明）
     4. 调用dp_getaddrinfo接口进行查询，使用方法与getaddrinfo完全相同，具体可以查看DEMO或man getaddrinfo。

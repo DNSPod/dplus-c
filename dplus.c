@@ -1,17 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-
-#include <sys/socket.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <pthread.h>
-
 #include "dplus.h"
 #include "lruhash.h"
+
 
 #define HTTPDNS_DEFAULT_SERVER "119.29.29.29"
 #define HTTPDNS_DEFAULT_PORT   80
@@ -19,7 +8,11 @@
 #define CACHE_DEFAULT_MIN_TTL  90
 #define PREFETCH_EXPIRY_ADD 60
 
+#define INVALID_DES_ID -1
+#define DES_KEY_SIZE 16
+
 #define HTTP_DEFAULT_DATA_SIZE 256
+#define DOMAIN_MAX_SIZE 256
 
 //calculate the prefetch TTL as 75% of original
 #define PREFETCH_TTL_CALC(ttl) ((ttl) - (ttl)/4)
@@ -33,6 +26,10 @@ static size_t cache_maxmem = HASH_DEFAULT_MAXMEM;
 //min cache ttl
 static int min_ttl = CACHE_DEFAULT_MIN_TTL;
 
+// des id and key
+static uint32_t des_id = INVALID_DES_ID;
+static char des_key[DES_KEY_SIZE] = {0} ;
+
 //http dns server and port
 static char *serv_ip = HTTPDNS_DEFAULT_SERVER;
 static int port = HTTPDNS_DEFAULT_PORT;
@@ -45,6 +42,106 @@ void dp_set_cache_mem(size_t maxmem)
 void dp_set_ttl(int ttl)
 {
     min_ttl = ttl;
+}
+
+void dp_set_des_id(u_int32_t id)
+{
+    des_id = id;
+}
+
+void dp_set_des_key(const char *key)
+{
+    snprintf(des_key, DES_KEY_SIZE - 1, "%s", key);
+}
+
+/*
+ * 对域名进行DES加密
+  * 如果不是UTF8格式，则需要转化为UTF8
+  * 返回值如果非NULL，需要释放
+  */
+char *dp_des_encrypt(const char *domain)
+{
+    EVP_CIPHER_CTX ctx;
+    unsigned char buf[DOMAIN_MAX_SIZE] = {0};
+    char *des_domain;
+    int blen1, blen2, dlen = strlen(domain), des_len;
+    int i;
+    
+    if (INVALID_DES_ID == des_id || dlen > DOMAIN_MAX_SIZE)
+        return NULL;
+    
+    // 初始化ctx结构，使用des/ecb方式，padding方式默认即可
+    EVP_CIPHER_CTX_init(&ctx);
+    EVP_EncryptInit_ex(&ctx, EVP_des_ecb(), NULL, (const unsigned char*)des_key, NULL);
+    //EVP_CIPHER_CTX_set_padding(&ctx, 0x0001);
+    
+    // 对称加密数据并padding
+    EVP_EncryptUpdate(&ctx, buf, &blen1,  (const unsigned char*)domain, dlen);
+    EVP_EncryptFinal_ex(&ctx, buf + blen1, &blen2);
+    EVP_CIPHER_CTX_cleanup(&ctx);
+    
+    des_len = (blen1 + blen2) * 2;
+    des_domain = malloc(des_len + 1);
+    if (NULL == des_domain)
+        return NULL;
+    
+    for (i = 0; i < blen1; i++)
+        snprintf(des_domain + i * 2, blen1 - i * 2 , "%02x", ((u_char *)buf)[i]);
+    des_domain[des_len] = '\0';
+    
+    return des_domain;
+}
+
+/*
+ * 对域名进行DES解密
+  * 如果不是UTF8格式，则需要转化为UTF8
+  * 返回值如果非NULL，需要释放
+  */
+char *dp_des_decrypt(const char *des_ip)
+{
+    EVP_CIPHER_CTX ctx;
+    char *buf, *sip;
+    int blen1, blen2, des_len = strlen(des_ip), iplen;
+    int i;
+    
+    if (INVALID_DES_ID == des_id)
+        return NULL;
+    
+    iplen = des_len / 2;
+    buf = malloc(iplen + 1);
+    if (NULL == buf)
+        return NULL;
+    sip = malloc(iplen + 1);
+    if (NULL == sip)
+    {
+        free(buf);
+        return NULL;
+    }
+    
+    // 将16禁制的字符串转换为字节字符串
+    for (i = 0;  i < iplen;  i++)
+    {
+        char tmp[3] = {0};
+        strncpy(tmp, des_ip + i * 2, 2);
+        buf[i] = strtoul(tmp, NULL, 16);
+    }
+    buf[iplen] = '\0';
+    
+    // 初始化ctx结构，使用des/ecb方式，padding方式默认即可
+    EVP_CIPHER_CTX_init(&ctx);
+    EVP_DecryptInit_ex(&ctx, EVP_des_ecb(), NULL, (const unsigned char*)des_key, NULL);
+    //EVP_CIPHER_CTX_set_padding(&ctx, 0x0001);
+    
+    // 解密数据并移除padding
+    EVP_DecryptUpdate(&ctx, (unsigned char*)sip, &blen1, (const unsigned char*)buf, iplen);
+    EVP_DecryptFinal_ex(&ctx, (unsigned char*)(sip + blen1), &blen2);
+    EVP_CIPHER_CTX_cleanup(&ctx);
+    
+    iplen = blen1 + blen2;
+    sip[iplen] = '\0';
+    
+    free(buf);
+    return sip;
 }
 
 //djb2 hash function
@@ -449,7 +546,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
     int i, ret, sockfd;
     struct host_info *hi;
     char http_data[HTTP_DEFAULT_DATA_SIZE];
-    char *http_data_ptr = http_data;
+    char *http_data_ptr;
     char *comma_ptr;
 
     sockfd = make_connection(dpe->serv_ip, dpe->port);
@@ -471,7 +568,15 @@ struct host_info *http_query(const char *node, time_t *ttl)
     }
     close(sockfd);
 
-    comma_ptr = strchr(http_data, ',');
+#ifdef ENTERPRISE_EDITION
+    http_data_ptr = dp_des_decrypt(http_data);
+    if (NULL == http_data_ptr)
+        return NULL;
+#else
+    http_data_ptr = http_data;
+#endif
+    
+    comma_ptr = strchr(http_data_ptr, ',');
     if (comma_ptr != NULL) {
         sscanf(comma_ptr + 1, "%ld", ttl);
         *comma_ptr = '\0';
@@ -493,7 +598,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
     if(hi->h_addr_list == NULL) {
         fprintf(stderr, "calloc addr_list failed\n");
         free(hi);
-        return NULL;
+        goto error;
     }
 
     for (i = 0; i < hi->addr_list_len; ++i) {
@@ -509,19 +614,28 @@ struct host_info *http_query(const char *node, time_t *ttl)
         if (addr == NULL) {
             fprintf(stderr, "malloc struct in_addr failed\n");
             host_info_clear(hi);
-            return NULL;
+            goto error;
         }
         ret = inet_pton(AF_INET, ipstr, addr);
         if (ret <= 0) {
             fprintf(stderr, "invalid ipstr:%s\n", ipstr);
             host_info_clear(hi);
-            return NULL;
+            goto error;
         }
 
         hi->h_addr_list[i] = addr;
     }
 
+#ifdef ENTERPRISE_EDITION
+        free(http_data_ptr);
+#endif
     return hi;
+    
+error:
+#ifdef ENTERPRISE_EDITION
+        free(http_data_ptr);
+#endif
+    return NULL;
 }
 
 void dp_freeaddrinfo(struct addrinfo *res)
@@ -534,6 +648,7 @@ int dp_getaddrinfo(const char *node, const char *service,
 {
     struct host_info *hi = NULL;
     int port = 0, socktype, proto, ret = 0;
+    char *dnode;
 
     hashvalue_t h;
     struct lruhash_entry *e;
@@ -626,12 +741,31 @@ int dp_getaddrinfo(const char *node, const char *service,
         lock_basic_unlock(&e->lock);
     }
 
-    hi = http_query(node, &ttl);
+#ifdef ENTERPRISE_EDITION
+    // 企业版需要先对域名进行对称加密
+    dnode = dp_des_encrypt(node);
+    if (NULL == dnode)
+    {
+        fprintf(stderr, "dp_des_encrypt: %s\n", node);
+        dp_env_destroy();
+        return 1;
+    }
+#else
+    dnode = node;
+#endif
+    
+    hi = http_query(dnode, &ttl);
     if (hi == NULL) {
         return getaddrinfo(node, service, hints, res);
     }
     ret = fillin_addrinfo_res(res, hi, port, socktype, proto);
 
     dns_cache_store_msg(&qinfo, h, hi, ttl);
+
+#ifdef ENTERPRISE_EDITION
+    free(dnode);
+#endif
+    host_info_clear(hi);
+    
     return ret;
 }
