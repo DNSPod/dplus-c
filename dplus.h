@@ -19,7 +19,7 @@
 
 #include "lruhash.h"
 
-#define ENTERPRISE_EDITION
+// #define ENTERPRISE_EDITION
 
 #ifdef ENTERPRISE_EDITION
 #define DP_DES_ID   12
