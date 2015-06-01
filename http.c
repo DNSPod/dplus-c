@@ -177,7 +177,7 @@ int fetch_response(int sockfd, char *http_data, size_t http_data_len)
         return -1;
     }
     if (http_response_code != HTTP_OK) {
-        fprintf(stderr, "response code %d", http_response_code);
+        fprintf(stderr, "response code %d\n", http_response_code);
         return -1;
     }
 
@@ -230,6 +230,7 @@ int fetch_response(int sockfd, char *http_data, size_t http_data_len)
     }
 
     if (content_length <= 0) {
+        fprintf(stderr, "Content-Length not found\n");
         return -1;
     }
 
