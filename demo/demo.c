@@ -1,5 +1,8 @@
 #include "../dplus.h"
 
+#define DP_DES_ID   12
+#define DP_DES_KEY  "@o]T<oX/"
+
 int main(int argc, char **argv)
 {
     struct addrinfo *answer, hint, *curr;
@@ -15,10 +18,8 @@ int main(int argc, char **argv)
     //init dplus environment
     dp_set_cache_mem(4*1024*1024);
     dp_set_ttl(90);
-#ifdef ENTERPRISE_EDITION
-    dp_set_des_id(DP_DES_ID);
-    dp_set_des_key(DP_DES_KEY);
-#endif
+    // 设置企业版加密ID和KEY
+    dp_set_des_id_key(DP_DES_ID, DP_DES_KEY);
     
     dp_env_init();
 
@@ -36,7 +37,7 @@ int main(int argc, char **argv)
 
     for (curr = answer; curr != NULL; curr = curr->ai_next) {
         inet_ntop(AF_INET, &(((struct sockaddr_in *)(curr->ai_addr))->sin_addr),
-            ipstr, 16);
+            ipstr, sizeof(ipstr));
         printf("%s\n", ipstr);
     }
 
