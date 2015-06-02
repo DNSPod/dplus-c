@@ -872,7 +872,7 @@ int dp_getaddrinfo(const char *node, const char *service,
         hi = dns_query(node, &ttl);
         if (NULL == hi) {
             return getaddrinfo(node, service, hints, res);
-            }
+        }
     }
     ret = fillin_addrinfo_res(res, hi, port, socktype, proto);
 
