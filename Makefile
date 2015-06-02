@@ -1,3 +1,5 @@
+#See the file LICENSE for the license
+
 CC=gcc
 CFLAGS=-static -Wall -g 
 LDFLAGS=-lpthread -lcrypto
