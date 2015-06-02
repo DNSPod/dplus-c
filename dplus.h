@@ -43,16 +43,14 @@
 #include <pthread.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <sys/epoll.h>
 #include "openssl/evp.h"
+#include <sys/ioctl.h>
 
 #include "lruhash.h"
 
-// #define ENTERPRISE_EDITION
-
-#ifdef ENTERPRISE_EDITION
-#define DP_DES_ID   12
-#define DP_DES_KEY  "@o]T<oX/"
-#endif
+#define DOMAIN_MAX_SIZE 256
+#define DNS_DEFAULT_DATA_SIZE 512
 
 struct query_info {
     char *node;
@@ -125,8 +123,7 @@ void dp_set_cache_mem(size_t maxmem);
 void dp_set_ttl(int ttl);
 
 // enterprise version interface
-void dp_set_des_id(u_int32_t id);
-void dp_set_des_key(const char *key);
+void dp_set_des_id_key(uint32_t id, const char *key);
 char *dp_des_encrypt(const char *domain);
 char *dp_des_decrypt(const char *des_ip);
 
@@ -151,11 +148,16 @@ void dp_freeaddrinfo(struct addrinfo *res);
 
 /** internal functions */
 struct host_info *http_query(const char *node, time_t *ttl);
+struct host_info *dns_query(const char *node, time_t *ttl);
 
 //http request api
 int make_connection(char *serv_ip, int port);
 int make_request(int sockfd, char *hostname, char *request_path);
 int fetch_response(int sockfd, char *http_data, size_t http_data_len);
+
+// dns request api
+int make_dns_query_format(const char *node, char *buf, int *query_len);
+int make_dns_query(char *buf, int query_len, time_t *ttl, int *Anum);
 
 /** */
 
