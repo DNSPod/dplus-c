@@ -40,7 +40,6 @@
 #define DES_KEY_SIZE 16
 
 #define HTTP_DEFAULT_DATA_SIZE 256
-#define DOMAIN_MAX_SIZE 256
 
 //calculate the prefetch TTL as 75% of original
 #define PREFETCH_TTL_CALC(ttl) ((ttl) - (ttl)/4)
@@ -57,6 +56,8 @@ static int min_ttl = CACHE_DEFAULT_MIN_TTL;
 // des id and key
 static uint32_t des_id = INVALID_DES_ID;
 static char des_key[DES_KEY_SIZE] = {0} ;
+// 是否使用des加密
+static uint32_t des_used = 0; 
 
 //http dns server and port
 static char *serv_ip = HTTPDNS_DEFAULT_SERVER;
@@ -72,14 +73,14 @@ void dp_set_ttl(int ttl)
     min_ttl = ttl;
 }
 
-void dp_set_des_id(u_int32_t id)
+void dp_set_des_id_key(uint32_t id, const char *key)
 {
-    des_id = id;
-}
+    if ( 0 == id || NULL == key )
+        return;
 
-void dp_set_des_key(const char *key)
-{
+    des_id = id;
     snprintf(des_key, DES_KEY_SIZE - 1, "%s", key);
+    des_used = 1;
 }
 
 /*
@@ -600,7 +601,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
     int i, ret, sockfd;
     struct host_info *hi;
     char http_data[HTTP_DEFAULT_DATA_SIZE];
-    char *http_data_ptr;
+    char *http_data_ptr, *http_data_ptr_head;
     char *comma_ptr;
 
     sockfd = make_connection(dpe->serv_ip, dpe->port);
@@ -608,11 +609,11 @@ struct host_info *http_query(const char *node, time_t *ttl)
         return NULL;
     }
 
-#ifdef ENTERPRISE_EDITION
-    snprintf(http_data, HTTP_DEFAULT_DATA_SIZE, "/d?dn=%s&ttl=1&id=%d", node, des_id);
-#else
-    snprintf(http_data, HTTP_DEFAULT_DATA_SIZE, "/d?dn=%s&ttl=1", node);
-#endif
+    if (des_used)
+        snprintf(http_data, HTTP_DEFAULT_DATA_SIZE, "/d?dn=%s&ttl=1&id=%d", node, des_id);
+    else
+        snprintf(http_data, HTTP_DEFAULT_DATA_SIZE, "/d?dn=%s&ttl=1", node);
+
     ret = make_request(sockfd, dpe->serv_ip, http_data);
     if(ret < 0){
         close(sockfd);
@@ -626,15 +627,15 @@ struct host_info *http_query(const char *node, time_t *ttl)
     }
     close(sockfd);
 
-#ifdef ENTERPRISE_EDITION
-    http_data_ptr = dp_des_decrypt(http_data);
-    if (NULL == http_data_ptr)
-        return NULL;
-    char *http_data_ptr_head = http_data_ptr;
-#else
-    http_data_ptr = http_data;
-#endif
-
+    if (des_used) {
+        http_data_ptr = dp_des_decrypt(http_data);
+        if (NULL == http_data_ptr)
+            return NULL;
+        http_data_ptr_head = http_data_ptr;
+    } else {
+        http_data_ptr = http_data;
+    }
+    
     comma_ptr = strchr(http_data_ptr, ',');
     if (comma_ptr != NULL) {
         sscanf(comma_ptr + 1, "%ld", ttl);
@@ -685,16 +686,66 @@ struct host_info *http_query(const char *node, time_t *ttl)
         hi->h_addr_list[i] = addr;
     }
 
-#ifdef ENTERPRISE_EDITION
+    if (des_used)
         free(http_data_ptr_head);
-#endif
+    
     return hi;
     
 error:
-#ifdef ENTERPRISE_EDITION
+    if (des_used)
         free(http_data_ptr_head);
-#endif
+
     return NULL;
+}
+
+struct host_info *dns_query(const char *node, time_t *ttl)
+{
+    char buf[DNS_DEFAULT_DATA_SIZE] = {0};
+    int query_len;
+    struct host_info *hi = NULL;
+    int Anum = 0, i, ret;
+    
+    ret = make_dns_query_format(node, buf, &query_len);
+    if (ret < 0) {
+        fprintf(stderr, "make dns query format failed\n");
+        return NULL;
+    }
+    
+    ret = make_dns_query(buf, query_len, ttl, &Anum);
+    if (ret < 0) {
+        fprintf(stderr, "make dns query failed\n");
+        return NULL;
+    }
+    
+    hi = (struct host_info *)malloc(sizeof(struct host_info));
+    if (hi == NULL) {
+        fprintf(stderr, "malloc struct host_info failed\n");
+        return NULL;
+    }
+    
+    hi->h_addrtype = AF_INET;
+    hi->h_length = sizeof(struct in_addr);
+    hi->addr_list_len = Anum;
+    hi->h_addr_list = (char **)calloc(hi->addr_list_len, sizeof(char *));
+    if(hi->h_addr_list == NULL) {
+        fprintf(stderr, "calloc addr_list failed\n");
+        free(hi);
+        return NULL;
+    }
+    
+    for (i = 0; i < Anum; i++)
+    {
+        struct in_addr *addr = (struct in_addr *)malloc(sizeof(struct in_addr));
+        if (addr == NULL) {
+            fprintf(stderr, "malloc struct in_addr failed\n");
+            host_info_clear(hi);
+            return NULL;
+        }
+        addr->s_addr = *(in_addr_t *)(buf + i * 4);
+        hi->h_addr_list[i] = (char *)addr;
+    }
+
+    return hi;
 }
 
 void dp_freeaddrinfo(struct addrinfo *res)
@@ -707,7 +758,7 @@ int dp_getaddrinfo(const char *node, const char *service,
 {
     struct host_info *hi = NULL;
     int port = 0, socktype, proto, ret = 0;
-    const char *dnode;
+    char *dnode;
 
     hashvalue_t h;
     struct lruhash_entry *e;
@@ -800,28 +851,35 @@ int dp_getaddrinfo(const char *node, const char *service,
         lock_basic_unlock(&e->lock);
     }
 
-#ifdef ENTERPRISE_EDITION
     // 企业版需要先对域名进行对称加密
-    dnode = dp_des_encrypt(node);
-    if (NULL == dnode) {
-        fprintf(stderr, "dp_des_encrypt: %s\n", node);
-        return -1;
+    if (des_used) {
+        dnode = dp_des_encrypt(node);
+        if (NULL == dnode) {
+            fprintf(stderr, "dp_des_encrypt: %s\n", node);
+            return -1;
+        }
+    } else {
+       dnode = (char *)node;
     }
-#else
-    dnode = node;
-#endif
 
+    /* 
+     * 首先使用HttpDNS向D+服务器进行请求,
+     * 如果失败则向Public DNS进行请求，
+     * 如果再失败则调用系统接口进行解析，该结果不会缓存
+     */
     hi = http_query(dnode, &ttl);
-    if (hi == NULL) {
-        return getaddrinfo(node, service, hints, res);
+    if (NULL == hi) {
+        hi = dns_query(node, &ttl);
+        if (NULL == hi) {
+            return getaddrinfo(node, service, hints, res);
+            }
     }
     ret = fillin_addrinfo_res(res, hi, port, socktype, proto);
 
     dns_cache_store_msg(&qinfo, h, hi, ttl);
 
-#ifdef ENTERPRISE_EDITION
-    free(dnode);
-#endif
+    if (des_used)
+        free(dnode);
 
     return ret;
 }
