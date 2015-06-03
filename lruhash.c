@@ -67,7 +67,7 @@ static void bucket_split(struct lruhash *table,
     }
 }
 
-static void bucket_overflow_remove(struct lruhash_bucket *bucket,
+void bucket_overflow_remove(struct lruhash_bucket *bucket,
     struct lruhash_entry *entry)
 {
     struct lruhash_entry *p = bucket->overflow_list;
@@ -126,7 +126,7 @@ static void table_grow(struct lruhash *table)
     return;
 }
 
-static struct lruhash_entry *bucket_find_entry(struct lruhash *table, 
+struct lruhash_entry *bucket_find_entry(struct lruhash *table, 
     struct lruhash_bucket *bucket, hashvalue_t hash, void *key)
 {
     struct lruhash_entry *p = bucket->overflow_list;
@@ -138,7 +138,7 @@ static struct lruhash_entry *bucket_find_entry(struct lruhash *table,
     return NULL;
 }
 
-static void lru_front(struct lruhash *table, struct lruhash_entry *entry)
+void lru_front(struct lruhash *table, struct lruhash_entry *entry)
 {
     entry->prev = NULL;
     entry->next = table->lru_head;
@@ -149,7 +149,7 @@ static void lru_front(struct lruhash *table, struct lruhash_entry *entry)
     table->lru_head = entry;
 }
 
-static void lru_remove(struct lruhash *table, struct lruhash_entry *entry)
+void lru_remove(struct lruhash *table, struct lruhash_entry *entry)
 {
     if(entry->prev)
         entry->prev->next = entry->next;

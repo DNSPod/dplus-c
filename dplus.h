@@ -95,6 +95,7 @@ struct prefetch_stat {
 
 struct prefetch_stat_list {
     lock_basic_t lock;
+    int used;
     struct prefetch_stat *head;
 };
 
@@ -114,6 +115,11 @@ struct dp_env {
     //http dns server and port
     char *serv_ip;
     int port;
+
+    //des_used
+    int des_used;
+    int des_id;
+    char *des_key;
 };
 
 /** API */
@@ -147,6 +153,7 @@ void dp_freeaddrinfo(struct addrinfo *res);
 /** */
 
 /** internal functions */
+
 struct host_info *http_query(const char *node, time_t *ttl);
 struct host_info *dns_query(const char *node, time_t *ttl);
 
@@ -158,6 +165,21 @@ int fetch_response(int sockfd, char *http_data, size_t http_data_len);
 // dns request api
 int make_dns_query_format(const char *node, char *buf, int *query_len);
 int make_dns_query(char *buf, int query_len, time_t *ttl, int *Anum);
+
+/** for tests **/
+
+extern struct dp_env *dpe;
+
+//hash function
+hashvalue_t query_info_hash(struct query_info *q);
+
+//prefetch job struct and function
+struct prefetch_job_info {
+    struct query_info qinfo;
+    hashvalue_t hash;
+};
+int prefetch_new_query(struct query_info *qinfo, hashvalue_t hash);
+
 
 /** */
 

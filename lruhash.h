@@ -122,11 +122,23 @@ void lruhash_insert(struct lruhash *table, hashvalue_t hash,
 
 void lruhash_remove(struct lruhash *table, hashvalue_t hash, void *key);
 
-//the function will lock the entry, unlock it when done.
+//this function will lock the entry, unlock it when done.
 struct lruhash_entry *lruhash_lookup(struct lruhash *table,
     hashvalue_t hash, void *key);
 
 void lruhash_status(struct lruhash *table, lruhash_printkey_t print_key,
     lruhash_printvalue_t print_value);
+
+
+/* for unit test */
+struct lruhash_entry *bucket_find_entry(struct lruhash *table, 
+    struct lruhash_bucket *bucket, hashvalue_t hash, void *key);
+
+void bucket_overflow_remove(struct lruhash_bucket *bucket,
+    struct lruhash_entry *entry);
+
+void lru_front(struct lruhash *table, struct lruhash_entry *entry);
+void lru_remove(struct lruhash *table, struct lruhash_entry *entry);
+/**/
 
 #endif

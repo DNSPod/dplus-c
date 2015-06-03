@@ -147,6 +147,7 @@ int make_request(int sockfd, char *hostname, char *request_path)
         "GET %s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\n\r\n",
         request_path, hostname);
 
+    //printf("%s\n", buf);
     return send_all(sockfd, buf, strlen(buf));
 }
 
