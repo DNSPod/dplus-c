@@ -34,7 +34,6 @@
 #define HTTPDNS_DEFAULT_PORT   80
 
 #define CACHE_DEFAULT_MIN_TTL  90
-#define PREFETCH_EXPIRY_ADD 60
 
 #define INVALID_DES_ID -1
 #define DES_KEY_SIZE 16
@@ -45,7 +44,7 @@
 #define PREFETCH_TTL_CALC(ttl) ((ttl) - (ttl)/4)
 
 //dplus environment
-static struct dp_env *dpe = NULL;
+struct dp_env *dpe = NULL;
 
 //max memory of dns cache
 static size_t cache_maxmem = HASH_DEFAULT_MAXMEM;
@@ -71,6 +70,12 @@ void dp_set_cache_mem(size_t maxmem)
 void dp_set_ttl(int ttl)
 {
     min_ttl = ttl;
+}
+
+void dp_set_httpdns_server(const char *serv, int p)
+{
+    serv_ip = strdup(serv);
+    port = p ? p : HTTPDNS_DEFAULT_PORT;
 }
 
 void dp_set_des_id_key(uint32_t id, const char *key)
@@ -142,15 +147,13 @@ char *dp_des_decrypt(const char *des_ip)
     if (NULL == buf)
         return NULL;
     sip = malloc(iplen + 1);
-    if (NULL == sip)
-    {
+    if (NULL == sip) {
         free(buf);
         return NULL;
     }
 
     // 将16禁制的字符串转换为字节字符串
-    for (i = 0;  i < iplen;  i++)
-    {
+    for (i = 0;  i < iplen;  i++) {
         char tmp[3] = {0};
         strncpy(tmp, des_ip + i * 2, 2);
         buf[i] = strtoul(tmp, NULL, 16);
@@ -183,7 +186,7 @@ static hashvalue_t hashfunc(const char *key, size_t klen) {
     return hash;
 }
 
-static hashvalue_t query_info_hash(struct query_info *q)
+hashvalue_t query_info_hash(struct query_info *q)
 {
     return hashfunc(q->node, strlen(q->node));
 }
@@ -296,6 +299,7 @@ static struct prefetch_stat_list *new_prefetch_list()
 
     lock_basic_init(&prefetch_list->lock);
     prefetch_list->head = NULL;
+    prefetch_list->used = 0;
 
     return prefetch_list;
 }
@@ -365,12 +369,13 @@ static struct prefetch_stat *prefetch_stat_insert(struct query_info *qinfo,
     }
     s = list->head;
     if (s == NULL) {
-        s = new_prefetch;
+        list->head = new_prefetch;
     } else {
         while(s->next)
             s = s->next;
         s->next = new_prefetch;
     }
+    list->used++;
     lock_basic_unlock(&list->lock);
     return new_prefetch;
 }
@@ -390,6 +395,7 @@ static int prefetch_stat_delete(struct query_info *qinfo,
             }
             lock_basic_unlock(&list->lock);
             free_prefetch_stat(s);
+            list->used--;
             return 1;
         }
         prev = s;
@@ -399,11 +405,6 @@ static int prefetch_stat_delete(struct query_info *qinfo,
     return 0;
 }
 
-struct prefetch_job_info {
-    struct query_info qinfo;
-    hashvalue_t hash;
-};
-
 static void *prefetch_job(void *arg)
 {
     struct prefetch_job_info *tinfo = (struct prefetch_job_info *)arg;
@@ -412,32 +413,36 @@ static void *prefetch_job(void *arg)
     hi = http_query(tinfo->qinfo.node, &ttl);
     if (hi == NULL) {
         prefetch_stat_delete(&tinfo->qinfo, dpe->prefetch_list);
+        free(tinfo);
         return NULL;
     }
     dns_cache_store_msg(&tinfo->qinfo, tinfo->hash, hi, ttl);
     prefetch_stat_delete(&tinfo->qinfo, dpe->prefetch_list);
+    free(tinfo);
     return NULL;
 }
 
-static void prefetch_new_query(struct query_info *qinfo, hashvalue_t hash)
+int prefetch_new_query(struct query_info *qinfo, hashvalue_t hash)
 {
-    struct prefetch_job_info tinfo;
+    struct prefetch_job_info *tinfo;
     pthread_t thread;
     pthread_attr_t attr;
     struct prefetch_stat *prefetch;
 
     prefetch = prefetch_stat_insert(qinfo, dpe->prefetch_list);
     if (prefetch == NULL) {
-        return;
+        return -1;
     }
 
-    tinfo.qinfo = prefetch->qinfo;
-    tinfo.hash = hash;
+    tinfo = (struct prefetch_job_info *)malloc(sizeof(struct prefetch_job_info));
+    tinfo->qinfo = prefetch->qinfo;
+    tinfo->hash = hash;
 
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_create(&thread, &attr, &prefetch_job, &tinfo);
+    pthread_create(&thread, &attr, &prefetch_job, tinfo);
     pthread_attr_destroy(&attr);
+    return 0;
 }
 
 static int is_integer(const char *s)
@@ -538,6 +543,10 @@ void dp_env_init()
         exit(1);
     }
     dpe->prefetch_list = new_prefetch_list();
+
+    dpe->des_used = des_used;
+    dpe->des_id = des_id;
+    dpe->des_key = des_key;
 }
 
 void dp_env_destroy()
@@ -635,7 +644,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
     } else {
         http_data_ptr = http_data;
     }
-    
+
     comma_ptr = strchr(http_data_ptr, ',');
     if (comma_ptr != NULL) {
         sscanf(comma_ptr + 1, "%ld", ttl);
@@ -690,7 +699,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
         free(http_data_ptr_head);
     
     return hi;
-    
+
 error:
     if (des_used)
         free(http_data_ptr_head);
@@ -704,25 +713,25 @@ struct host_info *dns_query(const char *node, time_t *ttl)
     int query_len;
     struct host_info *hi = NULL;
     int Anum = 0, i, ret;
-    
+
     ret = make_dns_query_format(node, buf, &query_len);
     if (ret < 0) {
         fprintf(stderr, "make dns query format failed\n");
         return NULL;
     }
-    
+
     ret = make_dns_query(buf, query_len, ttl, &Anum);
     if (ret < 0) {
         fprintf(stderr, "make dns query failed\n");
         return NULL;
     }
-    
+
     hi = (struct host_info *)malloc(sizeof(struct host_info));
     if (hi == NULL) {
         fprintf(stderr, "malloc struct host_info failed\n");
         return NULL;
     }
-    
+
     hi->h_addrtype = AF_INET;
     hi->h_length = sizeof(struct in_addr);
     hi->addr_list_len = Anum;
@@ -732,7 +741,7 @@ struct host_info *dns_query(const char *node, time_t *ttl)
         free(hi);
         return NULL;
     }
-    
+
     for (i = 0; i < Anum; i++)
     {
         struct in_addr *addr = (struct in_addr *)malloc(sizeof(struct in_addr));
@@ -843,11 +852,11 @@ int dp_getaddrinfo(const char *node, const char *service,
                 port, socktype, proto);
             lock_basic_unlock(&e->lock);
 
-            //prefetch it if the prefetch TTL expired
+            //prefetch it if the prefetch ttl expired
             if(prefetch_ttl <= now)
                 prefetch_new_query(&qinfo, h);
-            }
             return ret;
+        }
         lock_basic_unlock(&e->lock);
     }
 
