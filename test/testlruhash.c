@@ -27,7 +27,12 @@
 */
 
 #include "testmain.h"
-#include "../lruhash.h"
+#include "../src/lruhash.h"
+
+#ifdef WIN32
+#define random rand
+#define srandom srand
+#endif
 
 struct testkey_t {
     int id;
@@ -343,7 +348,7 @@ static void test_long_table(struct lruhash* table)
 //threaded test
 struct test_thr {
     int num;
-    pthread_t id;
+    dp_thread_t id;
     struct lruhash *table;
 };
 
@@ -383,11 +388,11 @@ static void test_threaded_table(struct lruhash* table)
     for(i = 1; i < numth; i++) {
         t[i].num = i;
         t[i].table = table;
-        pthread_create(&t[i].id, NULL, test_thr_main, &t[i]);
+        dp_thread_create(&t[i].id, test_thr_main, &t[i]);
     }
 
     for(i = 1; i < numth; i++) {
-        pthread_join(t[i].id, NULL);
+        dp_thread_join(t[i].id);
     }
 }
 

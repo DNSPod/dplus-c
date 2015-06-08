@@ -27,11 +27,14 @@
 */
 
 #include "testmain.h"
-#include "../dplus.h"
+#include "../src/dplus.h"
 
 #define DP_DES_ID   12
 #define DP_DES_KEY  "@o]T<oX/"
 #define HTTPDNS_DEFAULT_SERVER "119.29.29.29"
+#ifdef WIN32
+#define sleep(x) Sleep((x)*1000)
+#endif
 
 extern struct dp_env *dpe;
 
@@ -76,6 +79,7 @@ static void test_dns_query()
 
     hi = dns_query("www.qq.com", &ttl);
     unit_assert(ttl && hi);
+    printf("test dns query down\n");
 }
 
 static void test_prefetch()
@@ -91,6 +95,7 @@ static void test_prefetch()
     ret = prefetch_new_query(&qinfo, h);
     unit_assert(ret == 0);
     unit_assert(dpe->prefetch_list->used == 1);
+    printf("sleep 5 seconds\n");
     sleep(5);
     unit_assert(dpe->prefetch_list->used == 0);
 
@@ -99,6 +104,7 @@ static void test_prefetch()
     repinfo = (struct reply_info*)e->data;
     unit_assert(repinfo && repinfo->host);
     lock_basic_unlock(&e->lock);
+    printf("test prefetch down\n");
 }
 
 void dplus_test()

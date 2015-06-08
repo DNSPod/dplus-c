@@ -36,7 +36,6 @@ int main(int argc, char* argv[])
 
     lruhash_test();
     dplus_test();
-
     printf("%d checks ok.\n", testcount);
     return 0;
 }
