@@ -26,11 +26,34 @@
  * either expressed or implied, of the FreeBSD Project.
 */
 
-#include "../dplus.h"
+#include "../src/dplus.h"
 
 #define DP_DES_ID   12
 #define DP_DES_KEY  "@o]T<oX/"
 #define BUF_SIZE 102400
+
+#ifdef WIN32
+int gettimeofday(struct timeval *tp, void *tzp)
+{
+    time_t clock;
+    struct tm tm;
+    SYSTEMTIME wtm;
+    GetLocalTime(&wtm);
+    tm.tm_year = wtm.wYear - 1900;
+    tm.tm_mon = wtm.wMonth - 1;
+    tm.tm_mday = wtm.wDay;
+    tm.tm_hour = wtm.wHour;
+    tm.tm_min = wtm.wMinute;
+    tm.tm_sec = wtm.wSecond;
+    tm. tm_isdst = -1;
+    clock = mktime(&tm);
+    tp->tv_sec = (long)clock;
+    tp->tv_usec = wtm.wMilliseconds * 1000;
+    return 0;
+}
+#else
+#include <sys/time.h>
+#endif
 
 int main(int argc, char **argv)
 {
@@ -39,10 +62,15 @@ int main(int argc, char **argv)
     int ret, sfd;
     struct timeval time, time2;
     char http_data[BUF_SIZE];
+    char *domain;
 
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s hostname\n", argv[1]);
-        exit(1);
+        //fprintf(stderr, "Usage: %s hostname\n", argv[0]);
+        //exit(1);
+        domain = "www.dnspod.com";
+    }
+    else {
+        domain = argv[1];
     }
 
     //init dplus environment
@@ -56,13 +84,13 @@ int main(int argc, char **argv)
 
     dp_env_init();
 
-    bzero(&hint, sizeof(hint));
+    memset(&hint, 0, sizeof(hint));
     hint.ai_family = AF_INET;
     hint.ai_socktype = SOCK_STREAM;
 
     //first
     gettimeofday(&time, NULL);
-    ret = dp_getaddrinfo(argv[1], "http", &hint, &answer);
+    ret = dp_getaddrinfo(domain, "http", &hint, &answer);
     if (ret != 0) {
         fprintf(stderr, "dp_getaddrinfo: %s\n", gai_strerror(ret));
         dp_env_destroy();
@@ -80,7 +108,7 @@ int main(int argc, char **argv)
 
     //second
     gettimeofday(&time, NULL);
-    ret = dp_getaddrinfo(argv[1], "http", &hint, &answer);
+    ret = dp_getaddrinfo(domain, "http", &hint, &answer);
     if (ret != 0) {
         fprintf(stderr, "dp_getaddrinfo: %s\n", gai_strerror(ret));
         dp_env_destroy();
@@ -99,7 +127,12 @@ int main(int argc, char **argv)
     dp_cache_status();
     printf("\n");
 
-    printf("start http query:%s\n", argv[1]);
+#ifdef WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
+
+    printf("start http query:%s\n", domain);
     for (curr = answer; curr != NULL; curr = curr->ai_next) {
         sfd = socket(curr->ai_family, curr->ai_socktype,
                curr->ai_protocol);
@@ -109,25 +142,45 @@ int main(int argc, char **argv)
         if (connect(sfd, curr->ai_addr, curr->ai_addrlen) != -1)
             break;
 
+#ifdef WIN32
+        closesocket(sfd);
+        WSACleanup();
+#else
         close(sfd);
+#endif
     }
     //no longer needed
     dp_freeaddrinfo(answer);
 
-    ret = make_request(sfd, argv[1], "/");
+    ret = make_request(sfd, domain, "/");
     if (ret < 0) {
         printf("make request failed\n");
+#ifdef WIN32
+        closesocket(sfd);
+        WSACleanup();
+#else
         close(sfd);
+#endif
         return -1;
     }
 
     ret = fetch_response(sfd, http_data, BUF_SIZE);
     if (ret < 0) {
         printf("fetch response failed\n");
+#ifdef WIN32
+        closesocket(sfd);
+        WSACleanup();
+#else
         close(sfd);
+#endif
         return -1;
     }
+#ifdef WIN32
+    closesocket(sfd);
+    WSACleanup();
+#else
     close(sfd);
+#endif
 
     printf("%s\n", http_data);
 
