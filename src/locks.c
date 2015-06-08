@@ -32,41 +32,41 @@
 
 void lock_basic_init(lock_basic_t *lock)
 {
-	(void)InterlockedExchange(lock, 0);
+    (void)InterlockedExchange(lock, 0);
 }
 
 void lock_basic_destroy(lock_basic_t *lock)
 {
-	(void)InterlockedExchange(lock, 0);
+    (void)InterlockedExchange(lock, 0);
 }
 
 void lock_basic_lock(lock_basic_t *lock)
 {
-	LONG wait = 1;
+    LONG wait = 1;
 
-	while (InterlockedExchange(lock, 1)) {
-		Sleep(wait);
-		wait *= 2;
-	}
+    while (InterlockedExchange(lock, 1)) {
+        Sleep(wait);
+        wait *= 2;
+    }
 }
 
 void lock_basic_unlock(lock_basic_t *lock)
 {
-	(void)InterlockedExchange(lock, 0);
+    (void)InterlockedExchange(lock, 0);
 }
 
 void dp_thread_create(dp_thread_t *thr, void *(*func)(void*), void *arg)
 {
-	*thr = (dp_thread_t)_beginthreadex(NULL, 0, (void*)func, arg, 0, NULL);
-	if (*thr == NULL) {
-		fprintf(stderr, "CreateThread failed");
-		exit(1);
-	}
+    *thr = (dp_thread_t)_beginthreadex(NULL, 0, (void*)func, arg, 0, NULL);
+    if (*thr == NULL) {
+        fprintf(stderr, "CreateThread failed");
+        exit(1);
+    }
 }
 
 void dp_thread_detach(dp_thread_t thr)
 {
-	CloseHandle(thr);
+    CloseHandle(thr);
 }
 
 dp_thread_t dp_thread_self(void)

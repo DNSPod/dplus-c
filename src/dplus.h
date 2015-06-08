@@ -187,6 +187,8 @@ extern struct dp_env *dpe;
 //hash function
 hashvalue_t query_info_hash(struct query_info *q);
 
+void host_info_clear(struct host_info *host);
+
 //prefetch job struct and function
 struct prefetch_job_info {
     struct query_info qinfo;
