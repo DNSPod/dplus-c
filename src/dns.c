@@ -188,16 +188,6 @@ int make_dns_query(char *buf, int query_len, time_t *ttl, int *Anum)
         (struct sockaddr *)&addr, (socklen_t*)&addrlen);
     if (result_len <= 0) {
         fprintf(stderr, "receve dns response failed\n");
-#ifdef WIN32
-        LPTSTR lbuf;
-        DWORD err = WSAGetLastError();
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM
-            | FORMAT_MESSAGE_IGNORE_INSERTS
-            | FORMAT_MESSAGE_ALLOCATE_BUFFER,
-            NULL, err, 0, (LPTSTR)&lbuf, 0, NULL);
-        fprintf(stderr, "recvfrom get error:%d, %s\n", err, lbuf);
-        LocalFree(lbuf);
-#endif
         ret = -1;
         goto clear;
     }
