@@ -45,6 +45,7 @@ static void test_http_query()
 
     hi = http_query("www.qq.com", &ttl);
     unit_assert(ttl && hi);
+    host_info_clear(hi);
 
     dpe->serv_ip = "127.0.0.1";
     hi = http_query("www.qq.com", &ttl);
@@ -63,6 +64,7 @@ static void test_enterprise_http_query()
     dpe->des_key = DP_DES_KEY;
     hi = http_query("www.qq.com", &ttl);
     unit_assert(ttl && hi);
+    host_info_clear(hi);
 
     dpe->serv_ip = "127.0.0.1";
     hi = http_query("www.qq.com", &ttl);
@@ -79,6 +81,7 @@ static void test_dns_query()
 
     hi = dns_query("www.qq.com", &ttl);
     unit_assert(ttl && hi);
+    host_info_clear(hi);
     printf("test dns query down\n");
 }
 

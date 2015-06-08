@@ -249,7 +249,7 @@ void query_entry_delete(void *k)
     free(q);
 }
 
-static void host_info_clear(struct host_info *host)
+void host_info_clear(struct host_info *host)
 {
     int i;
     for (i = 0; i < host->addr_list_len; i++) {
