@@ -28,8 +28,9 @@
 
 #include "../src/dplus.h"
 
-#define DP_DES_ID   12
-#define DP_DES_KEY  "@o]T<oX/"
+#define YOUR_ID 10000
+#define DP_DES_ID   YOUR_ID
+#define DP_DES_KEY  "YOUR KEY"
 #define BUF_SIZE 102400
 
 #ifdef WIN32
