@@ -1,11 +1,14 @@
 # dplus-c
 
 ## 关于
-    dplus-c 是d+的c语言sdk。
+dplus-c 是d+的c语言sdk。D+就是DNSPod研发的移动解析服务的专用名称。使用HTTP协议向D+服务器的80端口进行请求，代替传统的DNS协议向DNS服务器的53端口进行请求，绕开了运营商的Local DNS，从而避免了使用运营商Local DNS造成的劫持和跨网问题。
+[详情请点击](https://www.dnspod.cn/httpdns)
 
 ## dplus-c模块
     lruhash.c: 缓存模块, 使用的是LRU算法，当缓存大小超过预设值后，剔除最久未使用的信息。
     http.c: http模块,发送和接收http请求。
+    dns.c: dns模块,发送和接受dns请求。
+    locks.c: 锁与线程的定义以及跨平台的处理。
     dplus.c: D+模块, 包括初始化缓存、配置等，实现类似getaddrinfo的功能。
 
 ## dplus-c的DNS查询流程
