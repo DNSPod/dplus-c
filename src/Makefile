@@ -7,7 +7,7 @@ LDFLAGS=-lpthread -lcrypto
 SOURCES=$(wildcard *.c)
 OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 
-TARGET=libdplus.a
+TARGET=libdp.a
 
 all: $(TARGET)
 
