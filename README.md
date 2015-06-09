@@ -36,7 +36,7 @@ dplus-c 是 D+ 的 C 语言 SDK。D+ 就是 DNSPod 研发的移动解析服务�
 
 
 ## API 使用说明
-** 1. 在初始化之前，可以修改配置，初始化之后将不能修改。 **
+**1. 在初始化之前，可以修改配置，初始化之后将不能修改。**
 ```
 void dp_set_cache_mem(size_t maxmem)
 ```
@@ -48,12 +48,13 @@ void dp_set_ttl(int ttl)
 缓存中存储了域名的ttl和预取ttl；当预取ttl到期时，会异步去d+重新请求。
 请求完成后再进行缓存，而d+服务器也会进行预取和缓存，
 所以此次请求有可能会得到一个很小的ttl值，需要对比设置的最短ttl时间，按ttl大的进行存储。
+
 ```
 void dp_set_des_id_key(uint32_t id, const char *key)
 ```
 设置DES加密id, KEY。企业版才需要设置。
 
-** 2. SDK初始化 **
+**2. SDK初始化**
 ```
 void dp_env_init()
 ```
@@ -63,7 +64,7 @@ void dp_env_destroy()
 ```
 销毁 dplus-c 环境
 
-** 3. 获取域名IP **
+**3. 获取域名IP**
 ```
 int dp_getaddrinfo(const char *node, const char *service,
     const struct addrinfo *hints, struct addrinfo **res)
@@ -75,7 +76,7 @@ void dp_freeaddrinfo(struct addrinfo *res)
 与系统函数getaddrinfo,freeaddrinfo类似。
 使用手册: man getaddrinfo
 
-** 4. 缓存操作 **
+**4. 缓存操作**
 ```
 void dp_flush_cache(const char *node)
 ```
