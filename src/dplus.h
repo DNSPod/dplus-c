@@ -55,7 +55,9 @@
 #include <sys/select.h>
 #endif
 
+#ifndef __APPLE__
 #include <openssl/evp.h>
+#endif /* __APPLE__ */
 
 #include "lruhash.h"
 #include "locks.h"

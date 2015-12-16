@@ -64,8 +64,12 @@ typedef pthread_t dp_thread_t;
 
 #endif
 
+#ifndef __APPLE__
+
 #include <openssl/crypto.h>
 int dp_openssl_lock_init(void);
 void dp_openssl_lock_delete(void);
+
+#endif /* __APPLE__ */
 
 #endif
