@@ -1,6 +1,14 @@
 CC=gcc
 CFLAGS=-static -Wall -g 
-LDFLAGS=-L../src -ldp -lpthread  -lcrypto
+LDFLAGS=-L../src -ldp
+
+ifneq ($(OS),Windows_NT)
+	OS = $(shell uname -s)
+endif
+
+ifneq ($(OS),Darwin)
+	LDFLAGS += -lpthread -lcrypto
+endif
 
 TARGET=demo
 

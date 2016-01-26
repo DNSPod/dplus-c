@@ -82,6 +82,8 @@ void dp_thread_join(dp_thread_t thr)
 
 #endif
 
+#ifndef __APPLE__
+
 /** global lock list for openssl locks */
 static lock_basic_t *dp_openssl_locks = NULL;
 
@@ -145,3 +147,5 @@ void dp_openssl_lock_delete(void)
     }
     free(dp_openssl_locks);
 }
+
+#endif /* __APPLE__ */

@@ -2,7 +2,15 @@
 
 CC=gcc
 CFLAGS=-static -Wall -g 
-LDFLAGS=-lpthread -lcrypto
+LDFLAGS=
+
+ifneq ($(OS),Windows_NT)
+	OS = $(shell uname -s)
+endif
+
+ifneq ($(OS),Darwin)
+	LDFLAGS += -lpthread -lcrypto
+endif
 
 SOURCES=$(wildcard *.c)
 OBJECTS=$(patsubst %.c, %.o, $(SOURCES))

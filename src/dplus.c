@@ -29,6 +29,9 @@
 #include "dplus.h"
 #include "lruhash.h"
 
+#ifdef __APPLE__
+#include <CommonCrypto/CommonCrypto.h>
+#endif /* __APPLE__ */
 
 #define HTTPDNS_DEFAULT_SERVER "119.29.29.29"
 #define HTTPDNS_DEFAULT_PORT   80
@@ -91,14 +94,39 @@ void dp_set_des_id_key(uint32_t id, const char *key)
 */
 char *dp_des_encrypt(const char *domain)
 {
+#ifdef __APPLE__
+    size_t blen;
+#else /* __APPLE__ */
     EVP_CIPHER_CTX ctx;
+    int blen1, blen2;
+#endif /* __APPLE__ */
     unsigned char buf[DOMAIN_MAX_SIZE] = { 0 };
     char *des_domain;
-    int blen1, blen2, dlen = strlen(domain), des_len;
+    int dlen = strlen(domain), des_len;
     int i;
 
     if (INVALID_DES_ID == des_id || dlen > DOMAIN_MAX_SIZE)
         return NULL;
+
+#ifdef __APPLE__
+
+    if (CCCrypt(kCCEncrypt,
+                kCCAlgorithmDES,
+                kCCOptionPKCS7Padding | kCCOptionECBMode,
+                des_key,
+                strlen(des_key),
+                NULL,
+                domain,
+                dlen,
+                buf,
+                sizeof(buf),
+                &blen) != kCCSuccess) {
+        return NULL;
+    }
+
+    des_len = (int)blen * 2;
+
+#else /* __APPLE__ */
 
     // 初始化ctx结构，使用des/ecb方式，padding方式默认即可
     EVP_CIPHER_CTX_init(&ctx);
@@ -111,11 +139,14 @@ char *dp_des_encrypt(const char *domain)
     EVP_CIPHER_CTX_cleanup(&ctx);
 
     des_len = (blen1 + blen2) * 2;
+
+#endif /* __APPLE__ */
+
     des_domain = malloc(des_len + 1);
     if (NULL == des_domain)
         return NULL;
 
-    for (i = 0; i < (blen1 + blen2); i++) {
+    for (i = 0; i < des_len / 2; i++) {
         snprintf(des_domain + i * 2, des_len - i * 2 + 1, "%02x", ((u_char *)buf)[i]);
     }
     des_domain[des_len] = '\0';
@@ -130,9 +161,14 @@ char *dp_des_encrypt(const char *domain)
 */
 char *dp_des_decrypt(const char *des_ip)
 {
+#ifdef __APPLE__
+    size_t blen;
+#else /* __APPLE__ */
     EVP_CIPHER_CTX ctx;
+    int blen1, blen2;
+#endif /* __APPLE__ */
     char *buf, *sip;
-    int blen1, blen2, des_len = strlen(des_ip), iplen;
+    int des_len = strlen(des_ip), iplen;
     int i;
 
     if (INVALID_DES_ID == des_id)
@@ -156,6 +192,26 @@ char *dp_des_decrypt(const char *des_ip)
     }
     buf[iplen] = '\0';
 
+#ifdef __APPLE__
+
+    if (CCCrypt(kCCDecrypt,
+                kCCAlgorithmDES,
+                kCCOptionPKCS7Padding | kCCOptionECBMode,
+                des_key,
+                strlen(des_key),
+                NULL,
+                buf,
+                iplen,
+                sip,
+                iplen,
+                &blen) != kCCSuccess) {
+        return NULL;
+    }
+
+    iplen = (int)blen;
+
+#else /* __APPLE__ */
+
     //初始化ctx结构，使用des/ecb方式，padding方式默认即可
     EVP_CIPHER_CTX_init(&ctx);
     EVP_DecryptInit_ex(&ctx, EVP_des_ecb(), NULL, (const unsigned char*)des_key, NULL);
@@ -167,6 +223,9 @@ char *dp_des_decrypt(const char *des_ip)
     EVP_CIPHER_CTX_cleanup(&ctx);
 
     iplen = blen1 + blen2;
+
+#endif /* __APPLE__ */
+
     sip[iplen] = '\0';
 
     free(buf);
@@ -565,12 +624,14 @@ void dp_env_init()
     dpe->des_used = des_used;
     dpe->des_id = des_id;
     dpe->des_key = des_key;
+#ifndef __APPLE__
     if (dpe->des_used) {
         if (!dp_openssl_lock_init()){
             fprintf(stderr, "init openssl locks failed\n");
             exit(1);
         }
     }
+#endif /* __APPLE__ */
 }
 
 void dp_env_destroy()
@@ -580,9 +641,11 @@ void dp_env_destroy()
 
     lruhash_delete(dpe->cache);
     prefetch_list_destroy(dpe->prefetch_list);
+#ifndef __APPLE__
     if (dpe->des_used) {
         dp_openssl_lock_delete();
     }
+#endif /* __APPLE__ */
     free(dpe);
 }
 
