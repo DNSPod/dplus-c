@@ -217,7 +217,8 @@ int make_dns_query(char *buf, int query_len, time_t *ttl, int *Anum)
         }
     }
 
-    ret = 0;
+    if ((*Anum) == 0)
+        ret = -1;
 
 clear:
     if (sockfd != -1) {
