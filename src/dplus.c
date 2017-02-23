@@ -555,16 +555,21 @@ static struct addrinfo *malloc_addrinfo(int port, uint32_t addr,
     struct addrinfo *ai;
     struct sockaddr_in *sa_in;
     size_t socklen;
-    socklen = sizeof(struct sockaddr_in);
+    socklen = sizeof(struct sockaddr);
 
-    ai = (struct addrinfo *)calloc(1, sizeof(struct addrinfo) + socklen);
+    ai = (struct addrinfo *)calloc(1, sizeof(struct addrinfo));
     if (!ai)
         return NULL;
 
     ai->ai_socktype = socktype;
     ai->ai_protocol = proto;
 
-    ai->ai_addr = (struct sockaddr *)(ai + 1);
+    ai->ai_addr = (struct sockaddr *)calloc(1, sizeof(struct addrinfo));
+    if (!ai->ai_addr) {
+        free(ai);
+        return NULL;
+    };
+
     ai->ai_addrlen = socklen;
     ai->ai_addr->sa_family = ai->ai_family = AF_INET;
 
@@ -867,15 +872,7 @@ struct host_info *dns_query(const char *node, time_t *ttl)
 
 void dp_freeaddrinfo(struct addrinfo *ai)
 {
-    //freeaddrinfo(res);
-    struct addrinfo *next;
-    while (ai != NULL) {
-        if (ai->ai_canonname != NULL)
-            free(ai->ai_canonname);
-        next = ai->ai_next;
-        free(ai);
-        ai = next;
-    }
+    freeaddrinfo(ai);
 }
 
 int dp_getaddrinfo(const char *node, const char *service,
