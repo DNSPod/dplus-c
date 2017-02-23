@@ -892,10 +892,9 @@ static struct addrinfo *dup_addrinfo(struct addrinfo *ai)
 
         if (prev)
             prev->ai_next = cur;
-        prev = cur;
-
-        if (!head)
+        else
             head = cur;
+        prev = cur;
 
         ai = ai->ai_next;
     }
