@@ -564,7 +564,7 @@ static struct addrinfo *malloc_addrinfo(int port, uint32_t addr,
     ai->ai_socktype = socktype;
     ai->ai_protocol = proto;
 
-    ai->ai_addr = (struct sockaddr *)calloc(1, sizeof(struct addrinfo));
+    ai->ai_addr = (struct sockaddr *)calloc(1, sizeof(struct sockaddr));
     if (!ai->ai_addr) {
         free(ai);
         return NULL;
