@@ -870,9 +870,56 @@ struct host_info *dns_query(const char *node, time_t *ttl)
     return hi;
 }
 
+static struct addrinfo *dup_addrinfo(struct addrinfo *ai)
+{
+    struct addrinfo *cur, *head = NULL, *prev = NULL;
+    while (ai != NULL) {
+        cur = (struct addrinfo *)malloc(sizeof(struct addrinfo));
+        if (!cur)
+            goto ERROR;
+
+        memcpy(cur, ai, sizeof(struct addrinfo));
+
+        cur->ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
+        if (!cur->ai_addr) {
+            free(cur);
+            goto ERROR;
+        };
+        memcpy(cur->ai_addr, ai->ai_addr, sizeof(struct sockaddr));
+
+        if (ai->ai_canonname)
+            cur->ai_canonname = strdup(ai->ai_canonname);
+
+        if (prev)
+            prev->ai_next = cur;
+        else
+            head = cur;
+        prev = cur;
+
+        ai = ai->ai_next;
+    }
+
+    return head;
+ERROR:
+    if (head) {
+        dp_freeaddrinfo(head);
+    }
+    return NULL;
+}
+
 void dp_freeaddrinfo(struct addrinfo *ai)
 {
-    freeaddrinfo(ai);
+    struct addrinfo *next;
+
+    while (ai != NULL) {
+        if (ai->ai_canonname != NULL)
+            free(ai->ai_canonname);
+        if (ai->ai_addr)
+            free(ai->ai_addr);
+        next = ai->ai_next;
+        free(ai);
+        ai = next;
+    }
 }
 
 int dp_getaddrinfo(const char *node, const char *service,
@@ -1008,7 +1055,16 @@ int dp_getaddrinfo(const char *node, const char *service,
     if (NULL == hi) {
         hi = dns_query(node, &ttl);
         if (NULL == hi) {
-            return getaddrinfo(node, service, hints, res);
+            struct addrinfo *answer;
+            ret = getaddrinfo(node, service, hints, &answer);
+            if (ret == 0) {
+                *res = dup_addrinfo(answer);
+                freeaddrinfo(answer);
+                if (*res == NULL) {
+                    return EAI_MEMORY;
+                }
+            }
+            return ret;
         }
     }
     ret = fillin_addrinfo_res(res, hi, port, socktype, proto);
