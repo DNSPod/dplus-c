@@ -876,14 +876,14 @@ static struct addrinfo *dup_addrinfo(struct addrinfo *ai)
     while (ai != NULL) {
         cur = (struct addrinfo *)malloc(sizeof(struct addrinfo));
         if (!cur)
-            goto ERROR;
+            goto error;
 
         memcpy(cur, ai, sizeof(struct addrinfo));
 
         cur->ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
         if (!cur->ai_addr) {
             free(cur);
-            goto ERROR;
+            goto error;
         };
         memcpy(cur->ai_addr, ai->ai_addr, sizeof(struct sockaddr));
 
@@ -900,7 +900,8 @@ static struct addrinfo *dup_addrinfo(struct addrinfo *ai)
     }
 
     return head;
-ERROR:
+
+error:
     if (head) {
         dp_freeaddrinfo(head);
     }
