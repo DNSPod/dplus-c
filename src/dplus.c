@@ -802,6 +802,7 @@ struct host_info *http_query(const char *node, time_t *ttl)
         ret = inet_pton(AF_INET, ipstr, addr);
         if (ret <= 0) {
             fprintf(stderr, "invalid ipstr:%s\n", ipstr);
+            free(addr);
             host_info_clear(hi);
             goto error;
         }
