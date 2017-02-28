@@ -515,6 +515,10 @@ int prefetch_new_query(struct query_info *qinfo, hashvalue_t hash)
     }
 
     tinfo = (struct prefetch_job_info *)malloc(sizeof(struct prefetch_job_info));
+    if (tinfo == NULL) {
+        return -1;
+    }
+
     tinfo->qinfo = prefetch->qinfo;
     tinfo->hash = hash;
 
