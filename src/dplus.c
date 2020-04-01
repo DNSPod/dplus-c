@@ -147,7 +147,7 @@ char *dp_des_encrypt(const char *domain)
         return NULL;
 
     for (i = 0; i < des_len / 2; i++) {
-        snprintf(des_domain + i * 2, des_len - i * 2 + 1, "%02x", ((u_char *)buf)[i]);
+        snprintf(des_domain + i * 2, des_len - i * 2 + 1, "%02x", ((unsigned char *)buf)[i]);
     }
     des_domain[des_len] = '\0';
 
