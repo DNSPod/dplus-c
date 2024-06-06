@@ -66,7 +66,7 @@ static int receive_all(int sockfd, char *buf, size_t length) {
         int ret;
         ret = wait_readable(sockfd, timeout);
         if (ret != 0)
-            return -1;
+            return bytes_received; // www.benew.xyz fix http_query failed
 
         ret = recv(sockfd, buf + bytes_received, length - bytes_received, 0);
         if (ret > 0) {
